@@ -10,12 +10,21 @@ import java.util.Objects;
 public class Node {
     private Node parent;
     private Board board;
-    private List<Move> moves = new ArrayList<>();
-    private List<Node> children = new ArrayList<>();
+    private Node node;
+    private List<Move> moves = null;
+    private List<Node> children = null;
+
+    private Integer alpha = null;
+    private Integer beta = null;
 
 
     public Node(Board board) {
         this.board = board;
+    }
+
+    public Node(Board board, Node node) {
+        this.board = board;
+        this.node = node;
     }
 
     public Node(Board board, List<Move> moves) {
@@ -32,6 +41,9 @@ public class Node {
     }
 
     public List<Move> getMoves() {
+        if (moves == null) {
+            moves = board.legalMoves();
+        }
         return moves;
     }
 
@@ -49,6 +61,16 @@ public class Node {
     }
 
     public List<Node> getChildren() {
+        if (children == null) {
+            children = new ArrayList<>();
+            for (Move move : getMoves()) {
+                Board clone = board.clone();
+                if (clone.doMove(move)) {
+                    //todo add filtering alpha/beta and null moving pruning
+                    children.add(new Node(clone, this));
+                }
+            }
+        }
         return children;
     }
 
@@ -79,10 +101,31 @@ public class Node {
 
     public int getCount() {
         int count = 0;
-        for (Node child : children) {
-            count += child.getCount();
+        if (children != null) {
+            for (Node child : children) {
+                count += child.getCount();
+            }
+            count += children.size();
         }
-        count += children.size();
         return count;
     }
+
+    public Node getNode() {
+        return node;
+    }
+
+    public void setNode(Node node) {
+        this.node = node;
+    }
+
+    public int getAlpha() {
+        return alpha;
+    }
+
+
+    public int getBeta() {
+        return beta;
+    }
+
+
 }
