@@ -4,7 +4,6 @@ import chariot.Client;
 import chariot.ClientAuth;
 import chariot.model.*;
 import com.github.bhlangonijr.chesslib.Board;
-import com.github.bhlangonijr.chesslib.move.Move;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -15,23 +14,26 @@ import java.net.URL;
 
 public class Main {
     public static void main(String[] args) {
-        ClientAuth client = Client.auth("lip_F6vYdszbwCQ6CoqjujAA");
-        User user = client.account().profile().get();
-//        Get Challenges
-        Result<PendingChallenges> challenges = client.challenges().challenges();
-        if (challenges.isPresent()) {
-            for (ChallengeResult.Challenge challenge : challenges.get().in()) {
-                Result<Ack> acceptChallenge = client.challenges().acceptChallenge(challenge.id());
-                if (acceptChallenge.isPresent()) {
-                    System.out.println(acceptChallenge);
-                }
-            }
 
-        }
 
         boolean running = true;
         while (running) {
             try {
+//                Accept challenges
+                ClientAuth client = Client.auth("lip_F6vYdszbwCQ6CoqjujAA");
+                User user = client.account().profile().get();
+//        Get Challenges
+                Result<PendingChallenges> challenges = client.challenges().challenges();
+                if (challenges.isPresent()) {
+                    for (ChallengeResult.Challenge challenge : challenges.get().in()) {
+                        Result<Ack> acceptChallenge = client.challenges().acceptChallenge(challenge.id());
+                        if (acceptChallenge.isPresent()) {
+                            System.out.println(acceptChallenge);
+                        }
+                    }
+
+                }
+
                 // Sending get request
                 URL url = new URL("https://lichess.org/api/account/playing");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -53,12 +55,12 @@ public class Main {
                 in.close();
                 // printing result from response
                 JSONObject jsonObject = new JSONObject(response.toString());
-                System.out.println("Response:-" + jsonObject);
                 JSONArray nowPlayingArray = jsonObject.getJSONArray("nowPlaying");
                 for (Object o : nowPlayingArray) {
                     JSONObject nowPlaying = (JSONObject) o;
                     if (nowPlaying.getBoolean("isMyTurn")) {
                         String nextMove = getNextMove(nowPlaying.getString("fen"));
+                        System.out.println(nextMove);
                         Result<Ack> move1 = client.board().move(nowPlaying.getString("gameId"), nextMove);
                     }
                 }
@@ -82,9 +84,20 @@ public class Main {
     public static String getNextMove(String fen) {
         Board board = new Board();
         board.loadFromFen(fen);
-        System.out.println(board);
-        Move move = board.legalMoves().get(1);
-        return (move.getFrom().value() + move.getTo().value()).toLowerCase();
+        Node node = NodeUtil.createNode(board);
+        NodeUtil.createTree(node, 4);
+        System.out.println(node.getCount());
+        float minimax = 0;
+        Node bestMove = null;
+        for (Node child : node.getChildren()) {
+            float minimax1 = NodeUtil.minimax(node, 10, board.getSideToMove());
+            if (minimax1 > minimax) {
+                minimax = minimax1;
+                bestMove = child;
+            }
+        }
+
+        return (bestMove.getMove().getFrom().value() + bestMove.getMove().getTo().value()).toLowerCase();
     }
 
 
