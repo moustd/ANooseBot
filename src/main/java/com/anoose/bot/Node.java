@@ -1,12 +1,12 @@
 package com.anoose.bot;
 
 import com.github.bhlangonijr.chesslib.Board;
-import com.github.bhlangonijr.chesslib.Piece;
-import com.github.bhlangonijr.chesslib.PieceType;
-import com.github.bhlangonijr.chesslib.Side;
 import com.github.bhlangonijr.chesslib.move.Move;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class Node {
     private Node parent;
@@ -16,6 +16,7 @@ public class Node {
     private List<Move> moves = null;
     private List<Node> children = null;
     private Float evaluation = null;
+
 
     private Integer alpha = null;
     private Integer beta = null;
@@ -71,21 +72,20 @@ public class Node {
 
     public List<Node> getChildren(boolean search) {
         if (children == null && search) {
-            children = new ArrayList<>();
-            for (Move move : getMoves()) {
-                Board clone = board.clone();
-                if (clone.doMove(move)) {
-                    //todo add filtering alpha/beta and null moving pruning
-                    children.add(new Node(clone, this, move));
-                }
-            }
-            children.sort(Comparator.comparing(Node::getEvaluation));
+            children = getMoves().parallelStream().map(move1 -> {
+                        Board clone = board.clone();
+                        if (clone.doMove(move1)) {
+                            //todo add filtering alpha/beta and null moving pruning
+                            return new Node(clone, this, move1);
+                        } else {
+                            return null;
+                        }
+                    }).filter(Objects::nonNull)
+                    .filter(node1 -> NodeUtil.alphaBetaPruning(node1, Float.MIN_VALUE, Float.MAX_VALUE, board.getSideToMove()) >= 0)
+                    .sorted(Comparator.comparing(Node::getEvaluation))
+                    .collect(Collectors.toList());
         }
         return children;
-    }
-
-    public void setChildren(List<Node> children) {
-        this.children = children;
     }
 
     @Override
@@ -138,57 +138,9 @@ public class Node {
     }
 
 
-//    int alphaBetaMax( int alpha, int beta, int depthleft ) {
-//        if ( depthleft == 0 ) return evaluate();
-//        for ( all moves) {
-//            score = alphaBetaMin( alpha, beta, depthleft - 1 );
-//            if( score >= beta )
-//                return beta;   // fail hard beta-cutoff
-//            if( score > alpha )
-//                alpha = score; // alpha acts like max in MiniMax
-//        }
-//        return alpha;
-//    }
-//
-//    int alphaBetaMin( int alpha, int beta, int depthleft ) {
-//        if ( depthleft == 0 ) return -evaluate();
-//        for ( all moves) {
-//            score = alphaBetaMax( alpha, beta, depthleft - 1 );
-//            if( score <= alpha )
-//                return alpha; // fail hard alpha-cutoff
-//            if( score < beta )
-//                beta = score; // beta acts like min in MiniMax
-//        }
-//        return beta;
-//    }
-
     public float getEvaluation() {
         if (evaluation == null) {
-            evaluation = 0f;
-
-            Side sideToMove = board.getSideToMove();
-
-            Map<PieceType, Float> pieceWeightMap = new HashMap<>();
-            pieceWeightMap.put(PieceType.KING, 200f);
-            pieceWeightMap.put(PieceType.QUEEN, 9f);
-            pieceWeightMap.put(PieceType.ROOK, 5f);
-            pieceWeightMap.put(PieceType.BISHOP, 3f);
-            pieceWeightMap.put(PieceType.KNIGHT, 3f);
-            pieceWeightMap.put(PieceType.PAWN, 1f);
-
-            for (PieceType pieceType : Arrays.stream(PieceType.values()).filter(pieceType -> pieceType != PieceType.NONE).toList()) {
-                int sideCount = board.getPieceLocation(Piece.make(sideToMove, pieceType)).size();
-                int flipSideCount = board.getPieceLocation(Piece.make(sideToMove.flip(), pieceType)).size();
-                evaluation += pieceWeightMap.get(pieceType) * (sideCount - flipSideCount);
-            }
-
-            int sideLegalMoves = board.legalMoves().size();
-            Board clone = board.clone();
-            clone.setSideToMove(sideToMove.flip());
-            int flipSideLegalMoves = clone.legalMoves().size();
-
-
-            evaluation += 0.1f * (sideLegalMoves - flipSideLegalMoves);
+            evaluation = NodeUtil.evaluateBoard(board);
         }
         return evaluation;
     }

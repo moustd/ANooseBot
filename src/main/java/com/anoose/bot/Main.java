@@ -59,9 +59,10 @@ public class Main {
                 for (Object o : nowPlayingArray) {
                     JSONObject nowPlaying = (JSONObject) o;
                     if (nowPlaying.getBoolean("isMyTurn")) {
+                        String gameId = nowPlaying.getString("gameId");
                         String nextMove = getNextMove(nowPlaying.getString("fen"));
                         System.out.println(nextMove);
-                        Result<Ack> move1 = client.board().move(nowPlaying.getString("gameId"), nextMove);
+                        Result<Ack> move1 = client.board().move(gameId, nextMove);
                     }
                 }
 
@@ -70,32 +71,30 @@ public class Main {
                 e.printStackTrace();
             }
         }
-
-        // Creates a new chessboard in the standard initial position
-//        Board board = new Board();
-//        long start = System.nanoTime();
-//        Node node = NodeUtil.createNode(board);
-//        NodeUtil.createTree(node, 3);
-//        long stop = System.nanoTime();
-//        System.out.printf("%.3f%n", (stop - start) / 1_000_000_000f);
-//        System.out.println(node.getCount());
     }
 
+
     public static String getNextMove(String fen) {
+        //Load board from fen
         Board board = new Board();
         board.loadFromFen(fen);
+
+
+        long start = System.nanoTime();
+
+        //Turn board into node, then create all nodes to certain depth
         Node node = NodeUtil.createNode(board);
-        NodeUtil.createTree(node, 4);
-        System.out.println(node.getCount());
-        float minimax = 0;
-        Node bestMove = null;
-        for (Node child : node.getChildren()) {
-            float minimax1 = NodeUtil.minimax(node, 10, board.getSideToMove());
-            if (minimax1 > minimax) {
-                minimax = minimax1;
-                bestMove = child;
-            }
-        }
+        NodeUtil.createTree(node, 6);
+        //Find best move with minmax
+        Node bestMove = node.getChildren().parallelStream()
+                .max((o1, o2) -> Float.compare(NodeUtil.minimax(o1, 10, board.getSideToMove()), NodeUtil.minimax(o2, 10, board.getSideToMove())))
+                .get();
+        //Stats
+        int count = node.getCount();
+        long stop = System.nanoTime();
+        float seconds = (stop - start) / 1_000_000_000f;
+        float movesPerSecond = count / seconds;
+        System.out.printf("Tree Size:%d\tTime:%.3f\tMoves per Second:%.3f%n", count, seconds, movesPerSecond);
 
         return (bestMove.getMove().getFrom().value() + bestMove.getMove().getTo().value()).toLowerCase();
     }
