@@ -8,12 +8,9 @@ import java.util.Optional;
 
 public class NodeUtil {
     public static Node createNode(Board board) {
-        Node node = NodeCache.boardNodeCache.get(board);
-        if (node == null) {
-            return new Node(board);
-        } else {
-            return node;
-        }
+
+        return new Node(board);
+
     }
 
     public static void createTree(Node node, int depth) {
@@ -24,16 +21,19 @@ public class NodeUtil {
         }
     }
 
-    public static float minimax(Node node, int depth, Side maximizingPlayer) {
+    public static float minimax(Node node, int depth, Side maximizingPlayer, Side currentPlayer) {
         if (depth == 0 || node.getChildren() == null) {
             return node.getEvaluation();
         }
-        Side sideToMove = node.getBoard().getSideToMove();
-        if (sideToMove.equals(maximizingPlayer)) {
-            Optional<Float> max = node.getChildren(false).parallelStream().map(node1 -> minimax(node1, depth - 1, maximizingPlayer.flip())).max(Comparator.naturalOrder());
+        if (currentPlayer.equals(maximizingPlayer)) {
+            Optional<Float> max = node.getChildren(false).parallelStream()
+                    .map(node1 -> minimax(node1, depth - 1, maximizingPlayer, currentPlayer.flip()))
+                    .max(Comparator.naturalOrder());
             return max.orElse(Float.MIN_VALUE);
         } else {
-            Optional<Float> min = node.getChildren(false).parallelStream().map(node1 -> minimax(node1, depth - 1, maximizingPlayer)).min(Comparator.naturalOrder());
+            Optional<Float> min = node.getChildren(false).parallelStream()
+                    .map(node1 -> minimax(node1, depth - 1, maximizingPlayer, currentPlayer))
+                    .min(Comparator.naturalOrder());
             return min.orElse(Float.MAX_VALUE);
 
         }

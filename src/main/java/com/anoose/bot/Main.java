@@ -4,6 +4,7 @@ import chariot.Client;
 import chariot.ClientAuth;
 import chariot.model.*;
 import com.github.bhlangonijr.chesslib.Board;
+import com.github.bhlangonijr.chesslib.Side;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -60,9 +61,11 @@ public class Main {
                     JSONObject nowPlaying = (JSONObject) o;
                     if (nowPlaying.getBoolean("isMyTurn")) {
                         String gameId = nowPlaying.getString("gameId");
-                        String nextMove = getNextMove(nowPlaying.getString("fen"));
+                        String color = nowPlaying.getString("color");
+                        String nextMove = getNextMove(nowPlaying.getString("fen"), color);
                         System.out.println(nextMove);
                         Result<Ack> move1 = client.board().move(gameId, nextMove);
+                        System.gc();
                     }
                 }
 
@@ -74,10 +77,11 @@ public class Main {
     }
 
 
-    public static String getNextMove(String fen) {
+    public static String getNextMove(String fen, String color) {
         //Load board from fen
         Board board = new Board();
         board.loadFromFen(fen);
+        board.setSideToMove(Side.fromValue(color.toUpperCase()));
 
 
         long start = System.nanoTime();
@@ -87,7 +91,7 @@ public class Main {
         NodeUtil.createTree(node, 6);
         //Find best move with minmax
         Node bestMove = node.getChildren().parallelStream()
-                .max((o1, o2) -> Float.compare(NodeUtil.minimax(o1, 10, board.getSideToMove()), NodeUtil.minimax(o2, 10, board.getSideToMove())))
+                .max((o1, o2) -> Float.compare(NodeUtil.minimax(o1, 10, board.getSideToMove(), board.getSideToMove()), NodeUtil.minimax(o2, 10, board.getSideToMove(), board.getSideToMove())))
                 .get();
         //Stats
         int count = node.getCount();
